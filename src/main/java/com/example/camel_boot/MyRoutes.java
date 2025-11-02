@@ -7,12 +7,17 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@Component
+// @Component
 public class MyRoutes extends RouteBuilder {
 
     @Override
     public void configure() {
-        // Route 1: Reacts to file CREATE events, then locks and reads the file via file: a component before calling MyService#first
+        // Global: keep routes resilient and non-blocking
+        onException(Exception.class)
+            .handled(false)
+            .log("[route-error] ${exception.class} - ${exception.message}");
+
+        // Route 1: Reacts to file CREATE events, then offloads work to a thread pool and safely locks/reads the file
         from("file-watch:{{app.watch.dir}}?events=CREATE")
             .routeId("firstRoute")
             .log("[firstRoute] File event: ${header.CamelFileEventType} path=${header.CamelFilePath}")
@@ -25,11 +30,16 @@ public class MyRoutes extends RouteBuilder {
                     e.getMessage().setHeader(Exchange.FILE_NAME, p.getFileName().toString()); // sets CamelFileName
                 }
             })
-            // Acquire and lock the file using marker-file locking to avoid concurrent processing
-            .pollEnrich("file:{{app.watch.dir}}?fileName=${header.CamelFileName}&noop=true&readLock=markerFile")
+            // Offload the potentially blocking work so the file-watch consumer can keep receiving further events
+            .threads(2, 8)
+            // Acquire and lock the file using marker-file locking to avoid concurrent processing, but don't wait forever
+            .pollEnrich()
+                .simple("file:{{app.watch.dir}}?fileName=${header.CamelFileName}&noop=true&readLock=markerFile")
+                .timeout(10000)
+            .end()
             .bean(MyService.class, "first");
 
-        // Route 2: Reacts to file MODIFY events, then locks and reads the file via file: a component before calling MyService#second
+        // Route 2: Reacts to file MODIFY events, then offloads work to a thread pool and safely locks/reads the file
         from("file-watch:{{app.watch.dir}}?events=MODIFY")
             .routeId("secondRoute")
             .log("[secondRoute] File event: ${header.CamelFileEventType} path=${header.CamelFilePath}")
@@ -41,7 +51,11 @@ public class MyRoutes extends RouteBuilder {
                     e.getMessage().setHeader(Exchange.FILE_NAME, p.getFileName().toString());
                 }
             })
-            .pollEnrich("file:{{app.watch.dir}}?fileName=${header.CamelFileName}&noop=true&readLock=markerFile")
+            .threads(2, 8)
+            .pollEnrich()
+                .simple("file:{{app.watch.dir}}?fileName=${header.CamelFileName}&noop=true&readLock=markerFile")
+                .timeout(10000)
+            .end()
             .bean(MyService.class, "second");
     }
 }
