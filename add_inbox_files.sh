@@ -20,6 +20,7 @@ n=$1
 timestamp=$(date +%Y%m%d_%H%M%S)
 for i in $(seq 1 "$n"); do
     touch "./target/inbox/file_${timestamp}_$i.txt"
+    touch "./target/inbox/file_${timestamp}_$i.txt.flg"
 done
 
 echo "Successfully created $n files in ./target/inbox"

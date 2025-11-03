@@ -17,17 +17,17 @@ public class MyRoutesCommonDirectory extends RouteBuilder {
         //     .handled(false)
         //     .log("[route-error] ${exception.class} - ${exception.message}");
 
-        from("file-watch:/home/przemek/workspaces/camel-boot/target/inbox")
-                .startupOrder(1)
-                .routeId("file-watch")
-                .choice()
-                // .when(simple("${header.CamelFileName} !contains 'camel'"))
-                .log("[just watching] File event: ${header.CamelFileEventType} path=${header.CamelFilePath} at ${header.CamelFileLastModified}")
-                // .process(_ -> {
-                //     System.out.println("processing");
-                //     System.out.println("processing");
-                // })
-                .endChoice();
+        // from("file-watch:/home/przemek/workspaces/camel-boot/target/inbox")
+        //         .startupOrder(1)
+        //         .routeId("file-watch")
+        //         .choice()
+        //         // .when(simple("${header.CamelFileName} !contains 'camel'"))
+        //         .log("[just watching] File event: ${header.CamelFileEventType} path=${header.CamelFilePath} at ${header.CamelFileLastModified}")
+        //         // .process(_ -> {
+        //         //     System.out.println("processing");
+        //         //     System.out.println("processing");
+        //         // })
+        //         .endChoice();
 
 
         from("file:/home/przemek/workspaces/camel-boot/target/inbox?doneFileName=${file:name}.flg"
@@ -46,6 +46,18 @@ public class MyRoutesCommonDirectory extends RouteBuilder {
                         Path p = Paths.get(absolute);
                         e.getMessage().setHeader(Exchange.FILE_NAME, p.getFileName().toString()); // sets CamelFileName
                     }
+                })
+                .end();
+
+        from("direct://letsprocessprocess")
+                .threads(5, 8)
+                .routeId("letsprocessprocess")
+                .log("asdjhsdakasdhjkasd")
+                .process(exchange -> {
+                    System.out.println("dasdasda");
+                    System.out.println("dasdasda");
+                    System.out.println("dasdasda");
+                    System.out.println("dasdasda");
                 })
                 .end();
     }
